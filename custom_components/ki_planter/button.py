@@ -44,4 +44,4 @@ class SendVarsel(StedEntity, ButtonEntity):
         super().__init__(c, "send_varsel", "send_varsel")
 
     async def async_press(self) -> None:
-        await self.coordinator.async_send_notification()
+        await self.coordinator.async_send_notification(test=True)

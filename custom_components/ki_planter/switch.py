@@ -12,7 +12,26 @@ from .entity import PlanteEntity, StedEntity
 
 async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback) -> None:
     c = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([Varsling(c)] + [AutoRegistrer(c, p) for p in c.plants if p.get(P_MOISTURE)])
+    async_add_entities([Varsling(c), TestVisning(c)] + [AutoRegistrer(c, p) for p in c.plants if p.get(P_MOISTURE)])
+
+
+class TestVisning(StedEntity, SwitchEntity):
+    """På = alle planter vises som «trenger vann» i 10 minutter (for å teste kort og prose-tekst)."""
+    _attr_icon = "mdi:test-tube"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, c) -> None:
+        super().__init__(c, "testvisning", "testvisning")
+
+    @property
+    def is_on(self) -> bool:
+        return self.coordinator.test_mode
+
+    async def async_turn_on(self, **kwargs) -> None:
+        await self.coordinator.async_set_test_mode(True)
+
+    async def async_turn_off(self, **kwargs) -> None:
+        await self.coordinator.async_set_test_mode(False)
 
 
 class AutoRegistrer(PlanteEntity, SwitchEntity):

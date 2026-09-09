@@ -26,6 +26,8 @@ class TrengerVann(PlanteEntity, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool:
+        if self.coordinator.test_mode:
+            return True
         s = self.status
         return bool(s and s.due)
 
@@ -53,7 +55,7 @@ class TrengerVann(PlanteEntity, BinarySensorEntity):
             "fuktighet": s.moisture if s else None,
             "fuktighet_min": s.moisture_min if s and p.get(P_MOISTURE) else None,
             "auto_registrer": bool(p.get(P_AUTO_WATERED, True)) if p.get(P_MOISTURE) else None,
-            "grunn": s.reason if s else None,
+            "grunn": "test" if self.coordinator.test_mode else (s.reason if s else None),
             "sist_vannet": s.last.isoformat() if s and s.last else None,
             "dager_siden": s.days_since if s else None,
             "dager_igjen": s.days_left if s else None,

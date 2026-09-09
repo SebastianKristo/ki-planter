@@ -32,7 +32,8 @@ Per sted (`<sted>_planter_*`):
 | `sensor.<sted>_planter_trenger_vann` | antall, med liste i attributtet `trenger_vann` |
 | `button.<sted>_planter_alle_vannet` | registrer alle som trenger vann |
 | `switch.<sted>_planter_varsling` | varsel på/av |
-| `button.<sted>_planter_send_varsel` | send varselet nå |
+| `button.<sted>_planter_send_varsel` | send et testvarsel nå (🧪 foran teksten; sendes også når ingen trenger vann) |
+| `switch.<sted>_planter_testvisning` | på = alle planter vises som «trenger vann» i 10 min – for å teste kort og dashboard-tekst |
 
 Varsel sendes til valgt `notify.*`-tjeneste på valgt klokkeslett når minst én plante trenger vann, med valgfri lenke.
 
@@ -62,3 +63,7 @@ Stedets `sensor.<sted>_trenger_vann` har attributtene `sesong`, `daglengde_timer
 Vil du heller ha faste måneder, velg «Faste måneder» og vintermåneder.
 
 Forslag for et sørvindu i Oslo: Arekapalme 6 / 5 / 13 dager (vekst / høysommer / vinter), Palmelilje 11 / 11 / 25 dager.
+
+## v1.3.0
+- «Send varsel» sender alltid et testvarsel (merket 🧪). «Testvisning»-bryter viser alle planter som tørste i 10 minutter.
+- Stedets sensor har `trenger_vann_tekst` («Arekapalme og Palmelilje») for bruk i tekstkort.

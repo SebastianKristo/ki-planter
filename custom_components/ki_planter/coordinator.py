@@ -100,6 +100,8 @@ class PlanterCoordinator:
         self.prefix = slugify(f"{self.name} planter")
         self.self_update = False
         self.last_notified: datetime | None = None
+        self.test_mode: bool = False          # viser alle planter som «trenger vann» i 10 min (for å teste kort/prose)
+        self._test_unsub: Callable[[], None] | None = None
         self._listeners: set[Callable[[], None]] = set()
         self._unsubs: list[Callable[[], None]] = []
 
@@ -167,12 +169,30 @@ class PlanterCoordinator:
         return self._status_of(p, dt_util.now()) if p else None
 
     def due_count(self) -> int:
+        if self.test_mode:
+            return len(self.plants)
         now = dt_util.now()
         return sum(1 for p in self.plants if self._status_of(p, now).due)
 
     def due_names(self) -> list[str]:
         now = dt_util.now()
-        return [p.get(P_NAME) or p.get(P_ID) for p in self.plants if self._status_of(p, now).due]
+        return [p.get(P_NAME) or p.get(P_ID) for p in self.plants if self.test_mode or self._status_of(p, now).due]
+
+    async def async_set_test_mode(self, on: bool) -> None:
+        """Testvisning: alle planter regnes som «trenger vann» i 10 minutter."""
+        if self._test_unsub:
+            self._test_unsub()
+            self._test_unsub = None
+        self.test_mode = on
+        if on:
+            from homeassistant.helpers.event import async_call_later
+
+            async def _off(_now):
+                self._test_unsub = None
+                await self.async_set_test_mode(False)
+
+            self._test_unsub = async_call_later(self.hass, 600, _off)
+        self._notify()
 
     @staticmethod
     def normalize(p: dict[str, Any]) -> dict[str, Any]:
@@ -230,6 +250,8 @@ class PlanterCoordinator:
         for u in self._unsubs:
             u()
         self._unsubs.clear()
+        if self._test_unsub:
+            self._test_unsub()
 
     @callback
     def async_add_listener(self, cb: Callable[[], None]) -> Callable[[], None]:
@@ -289,13 +311,21 @@ class PlanterCoordinator:
             return
         await self.async_send_notification(names)
 
-    async def async_send_notification(self, names: list[str] | None = None) -> None:
+    async def async_send_notification(self, names: list[str] | None = None, test: bool = False) -> None:
         names = names if names is not None else self.due_names()
         svc = self.cfg.get(CONF_NOTIFY) or ""
-        if "." not in svc or not names:
+        if "." not in svc:
+            _LOGGER.warning("%s: ingen varsel-tjeneste satt opp (Konfigurer → Varsling)", self.name)
+            return
+        if not names and not test:
             return
         domain, service = svc.split(".", 1)
-        message = f"{' og '.join(names)} trenger vann." if len(names) < 3 else f"{len(names)} planter trenger vann: {', '.join(names)}."
+        if names:
+            message = f"{' og '.join(names)} trenger vann." if len(names) < 3 else f"{len(names)} planter trenger vann: {', '.join(names)}."
+        else:
+            message = "Testvarsel – ingen planter trenger vann akkurat nå."
+        if test:
+            message = "🧪 " + message
         data: dict[str, Any] = {"title": f"Planter – {self.name}", "message": message}
         url = self.cfg.get(CONF_NOTIFY_URL)
         if url:
