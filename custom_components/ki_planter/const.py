@@ -4,7 +4,8 @@ DOMAIN = "ki_planter"
 
 CONF_NAME = "name"                 # sted, f.eks. «Sebastians soverom»
 CONF_PLANTS = "plants"             # liste av planter (options)
-CONF_NOTIFY = "notify_service"     # f.eks. notify.mobile_app_sebastians_iphone
+CONF_NOTIFY = "notify_service"     # liste av notify-tjenester (gammel streng støttes)
+CONF_NOTIFY_MUTED = "notify_muted"  # tjenester som er slått av midlertidig (via bryter)
 CONF_NOTIFY_TIME = "notify_time"   # "18:00"
 CONF_NOTIFY_ON = "notify_enabled"
 CONF_NOTIFY_URL = "notify_url"     # åpnes fra varselet, f.eks. /lovelace/soverom#planter
@@ -36,7 +37,8 @@ DEFAULT_ICON = "mdi:sprout"
 
 DEFAULTS = {
     CONF_PLANTS: [],
-    CONF_NOTIFY: "",
+    CONF_NOTIFY: [],
+    CONF_NOTIFY_MUTED: [],
     CONF_NOTIFY_TIME: "18:00",
     CONF_NOTIFY_ON: True,
     CONF_NOTIFY_URL: "",

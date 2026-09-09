@@ -11,7 +11,7 @@
       "varsling": {
         "title": "Varsling",
         "data": {
-          "notify_service": "Varsel-tjeneste (f.eks. notify.mobile_app_sebastians_iphone) – tom = ingen varsel",
+          "notify_service": "Enheter som skal få varsel",
           "notify_time": "Klokkeslett for varsel",
           "notify_enabled": "Varsling på",
           "notify_url": "Lenke som åpnes fra varselet (f.eks. /lovelace/soverom#planter)",
@@ -100,7 +100,7 @@
       "varsling": {
         "title": "Varsling",
         "data": {
-          "notify_service": "Varsel-tjeneste (f.eks. notify.mobile_app_sebastians_iphone) – tom = ingen varsel",
+          "notify_service": "Enheter som skal få varsel",
           "notify_time": "Klokkeslett for varsel",
           "notify_enabled": "Varsling på",
           "notify_url": "Lenke som åpnes fra varselet (f.eks. /lovelace/soverom#planter)",
@@ -168,6 +168,9 @@
       },
       "testvisning": {
         "name": "Testvisning"
+      },
+      "varsel_enhet": {
+        "name": "Varsel {enhet}"
       }
     }
   }

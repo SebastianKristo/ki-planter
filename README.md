@@ -35,7 +35,7 @@ Per sted (`<sted>_planter_*`):
 | `button.<sted>_planter_send_varsel` | send et testvarsel nå (🧪 foran teksten; sendes også når ingen trenger vann) |
 | `switch.<sted>_planter_testvisning` | på = alle planter vises som «trenger vann» i 10 min – for å teste kort og dashboard-tekst |
 
-Varsel sendes til valgt `notify.*`-tjeneste på valgt klokkeslett når minst én plante trenger vann, med valgfri lenke.
+Varsel sendes til de valgte enhetene (`notify.*`) på valgt klokkeslett når minst én plante trenger vann, med valgfri lenke.
 
 ## Kort
 `ki-planter-card` i [ki-cards](https://github.com/SebastianKristo/ki-cards) v2 finner plantene selv (attributt `integrasjon: ki_planter`);
@@ -67,3 +67,8 @@ Forslag for et sørvindu i Oslo: Arekapalme 6 / 5 / 13 dager (vekst / høysommer
 ## v1.3.0
 - «Send varsel» sender alltid et testvarsel (merket 🧪). «Testvisning»-bryter viser alle planter som tørste i 10 minutter.
 - Stedets sensor har `trenger_vann_tekst` («Arekapalme og Palmelilje») for bruk i tekstkort.
+
+## v1.4.0 – valg av varsel-enheter
+Under Varsling velger du enhetene i en liste (📱 mobiler fra mobile_app med modellnavn, 🔔 andre notify-tjenester).
+Flere kan velges. Hver valgt enhet får en bryter `switch.<sted>_planter_varsel_<enhet>` (f.eks. `…_varsel_sebastians_iphone`) så du kan skru av én enhet uten å
+åpne konfigurasjonen. Gammel tekstverdi konverteres automatisk.

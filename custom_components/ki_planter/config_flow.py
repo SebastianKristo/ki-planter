@@ -15,6 +15,7 @@ from .const import (
     P_LATIN, P_MOISTURE, P_MOISTURE_MIN, P_NAME, P_TIP,
 )
 from .coordinator import PlanterCoordinator
+from .notify_targets import notify_targets
 
 MORE = "legg_til_flere"
 PICK = "plante"
@@ -30,10 +31,18 @@ def sted_schema(d: dict[str, Any]) -> vol.Schema:
     })
 
 
-def varsling_schema(d: dict[str, Any]) -> vol.Schema:
+def varsling_schema(d: dict[str, Any], hass=None) -> vol.Schema:
     g = lambda k: d.get(k, DEFAULTS[k])  # noqa: E731
+    cur = d.get(CONF_NOTIFY) or []
+    if isinstance(cur, str):
+        cur = [x.strip() for x in cur.split(",") if x.strip()]
+    targets = notify_targets(hass) if hass else []
+    known = {sid for sid, _ in targets}
+    opts = [selector.SelectOptionDict(value=sid, label=label) for sid, label in targets]
+    opts += [selector.SelectOptionDict(value=sid, label=f"⚠️ {sid} (finnes ikke lenger)") for sid in cur if sid not in known]
     return vol.Schema({
-        vol.Optional(CONF_NOTIFY, description=_sv(d, CONF_NOTIFY)): str,
+        vol.Optional(CONF_NOTIFY, default=cur): selector.SelectSelector(selector.SelectSelectorConfig(
+            options=opts, multiple=True, mode=selector.SelectSelectorMode.LIST, custom_value=True)),
         vol.Required(CONF_NOTIFY_TIME, default=g(CONF_NOTIFY_TIME)): selector.TimeSelector(),
         vol.Required(CONF_NOTIFY_ON, default=g(CONF_NOTIFY_ON)): selector.BooleanSelector(),
         vol.Optional(CONF_NOTIFY_URL, description=_sv(d, CONF_NOTIFY_URL)): str,
@@ -101,9 +110,10 @@ class KiPlanterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_varsling(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
             user_input[CONF_WINTER_MONTHS] = [int(m) for m in user_input.get(CONF_WINTER_MONTHS, [])]
+            user_input[CONF_NOTIFY] = list(user_input.get(CONF_NOTIFY) or [])
             self._data.update(user_input)
             return await self.async_step_plante()
-        return self.async_show_form(step_id="varsling", data_schema=varsling_schema({}))
+        return self.async_show_form(step_id="varsling", data_schema=varsling_schema({}, self.hass))
 
     async def async_step_plante(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
@@ -180,8 +190,8 @@ class KiPlanterOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_varsling(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
-            return self._save(**{CONF_NOTIFY: user_input.get(CONF_NOTIFY, ""), CONF_NOTIFY_TIME: user_input[CONF_NOTIFY_TIME],
+            return self._save(**{CONF_NOTIFY: list(user_input.get(CONF_NOTIFY) or []), CONF_NOTIFY_TIME: user_input[CONF_NOTIFY_TIME],
                                  CONF_NOTIFY_ON: user_input[CONF_NOTIFY_ON], CONF_NOTIFY_URL: user_input.get(CONF_NOTIFY_URL, ""),
                                  CONF_WINTER_MONTHS: [int(m) for m in user_input.get(CONF_WINTER_MONTHS, [])],
                                  CONF_SEASON_MODE: user_input[CONF_SEASON_MODE], CONF_WINTER_HOURS: user_input[CONF_WINTER_HOURS], CONF_SUMMER_HOURS: user_input[CONF_SUMMER_HOURS]})
-        return self.async_show_form(step_id="varsling", data_schema=varsling_schema(self._entry.options))
+        return self.async_show_form(step_id="varsling", data_schema=varsling_schema(self._entry.options, self.hass))

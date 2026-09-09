@@ -13,7 +13,7 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.util import dt as dt_util, slugify
 
 from .const import (
-    CONF_NAME, CONF_NOTIFY, CONF_SEASON_MODE, CONF_SUMMER_HOURS, CONF_WINTER_HOURS, CONF_WINTER_MONTHS, DOMAIN,
+    CONF_NAME, CONF_NOTIFY, CONF_NOTIFY_MUTED, CONF_SEASON_MODE, CONF_SUMMER_HOURS, CONF_WINTER_HOURS, CONF_WINTER_MONTHS, DOMAIN,
     P_INTERVAL_SUMMER, SEASON_GROWTH, SEASON_SUMMER, SEASON_WINTER, CONF_NOTIFY_ON, CONF_NOTIFY_TIME, CONF_NOTIFY_URL, CONF_PLANTS, DEFAULT_ICON,
     DEFAULT_INTERVAL, DEFAULT_MOISTURE_MIN, DEFAULTS, MOISTURE_JUMP, P_AUTO_WATERED, P_ICON, P_ID, P_INTERVAL, P_INTERVAL_WINTER,
     P_LAST, P_LATIN, P_MOISTURE, P_MOISTURE_MIN, P_NAME, P_TIP,
@@ -299,8 +299,29 @@ class PlanterCoordinator:
         self._save(**{CONF_PLANTS: plants})
 
     # ---------------------------------------------------------------- varsel
+    @property
+    def notify_services(self) -> list[str]:
+        """Alle valgte notify-tjenester (gammel streng-verdi konverteres)."""
+        v = self.cfg.get(CONF_NOTIFY) or []
+        if isinstance(v, str):
+            v = [x.strip() for x in v.split(",") if x.strip()]
+        return [x if x.startswith("notify.") else f"notify.{x}" for x in v]
+
+    @property
+    def active_notify_services(self) -> list[str]:
+        muted = set(self.cfg.get(CONF_NOTIFY_MUTED) or [])
+        return [s for s in self.notify_services if s not in muted]
+
+    def is_muted(self, service: str) -> bool:
+        return service in set(self.cfg.get(CONF_NOTIFY_MUTED) or [])
+
+    async def async_set_muted(self, service: str, muted: bool) -> None:
+        cur = set(self.cfg.get(CONF_NOTIFY_MUTED) or [])
+        (cur.add if muted else cur.discard)(service)
+        self._save(**{CONF_NOTIFY_MUTED: sorted(cur)})
+
     async def _on_notify_time(self, now: datetime) -> None:
-        if not self.cfg.get(CONF_NOTIFY_ON) or not self.cfg.get(CONF_NOTIFY):
+        if not self.cfg.get(CONF_NOTIFY_ON) or not self.active_notify_services:
             return
         now = dt_util.as_local(now)
         hh, mm = (self.cfg.get(CONF_NOTIFY_TIME) or "18:00").split(":")[:2]
@@ -313,13 +334,12 @@ class PlanterCoordinator:
 
     async def async_send_notification(self, names: list[str] | None = None, test: bool = False) -> None:
         names = names if names is not None else self.due_names()
-        svc = self.cfg.get(CONF_NOTIFY) or ""
-        if "." not in svc:
-            _LOGGER.warning("%s: ingen varsel-tjeneste satt opp (Konfigurer → Varsling)", self.name)
+        services = self.active_notify_services
+        if not services:
+            _LOGGER.warning("%s: ingen aktive varsel-enheter (Konfigurer → Varsling)", self.name)
             return
         if not names and not test:
             return
-        domain, service = svc.split(".", 1)
         if names:
             message = f"{' og '.join(names)} trenger vann." if len(names) < 3 else f"{len(names)} planter trenger vann: {', '.join(names)}."
         else:
@@ -330,9 +350,11 @@ class PlanterCoordinator:
         url = self.cfg.get(CONF_NOTIFY_URL)
         if url:
             data["data"] = {"url": url}
-        try:
-            await self.hass.services.async_call(domain, service, data, blocking=False)
-            self.last_notified = dt_util.now()
-            self._notify()
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.warning("%s: varsel feilet (%s): %s", self.name, svc, err)
+        for svc in services:
+            domain, service = svc.split(".", 1)
+            try:
+                await self.hass.services.async_call(domain, service, data, blocking=False)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.warning("%s: varsel feilet (%s): %s", self.name, svc, err)
+        self.last_notified = dt_util.now()
+        self._notify()

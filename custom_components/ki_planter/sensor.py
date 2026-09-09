@@ -43,6 +43,8 @@ class TrengerVannAntall(StedEntity, SensorEntity):
             "trenger_vann_tekst": " og ".join(c.due_names()),
             "testvisning": c.test_mode,
             "sist_varslet": c.last_notified.isoformat() if c.last_notified else None,
+            "varsel_enheter": c.notify_services,
+            "varsel_aktive": c.active_notify_services,
             "sesong": c.season(),
             "sesongmodus": c.cfg.get(CONF_SEASON_MODE, "daylength"),
             "daglengde_timer": round(c.day_length(), 1),
