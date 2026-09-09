@@ -5,7 +5,7 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass, Bina
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, P_ICON, P_ID, P_INTERVAL, P_LATIN, P_NAME, P_TIP
+from .const import DOMAIN, P_AUTO_WATERED, P_ICON, P_ID, P_INTERVAL, P_INTERVAL_WINTER, P_LATIN, P_MOISTURE, P_NAME, P_TIP
 from .entity import PlanteEntity
 
 
@@ -42,7 +42,15 @@ class TrengerVann(PlanteEntity, BinarySensorEntity):
             "latin": p.get(P_LATIN) or None,
             "ikon": p.get(P_ICON),
             "tips": p.get(P_TIP) or None,
-            "intervall_dager": p.get(P_INTERVAL),
+            "intervall_dager": s.interval if s else p.get(P_INTERVAL),
+            "intervall_sommer": p.get(P_INTERVAL),
+            "intervall_vinter": p.get(P_INTERVAL_WINTER) or None,
+            "sesong": s.season if s else None,
+            "fuktighet_sensor": p.get(P_MOISTURE) or None,
+            "fuktighet": s.moisture if s else None,
+            "fuktighet_min": s.moisture_min if s and p.get(P_MOISTURE) else None,
+            "auto_registrer": bool(p.get(P_AUTO_WATERED, True)) if p.get(P_MOISTURE) else None,
+            "grunn": s.reason if s else None,
             "sist_vannet": s.last.isoformat() if s and s.last else None,
             "dager_siden": s.days_since if s else None,
             "dager_igjen": s.days_left if s else None,

@@ -7,7 +7,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, P_NAME
+from .const import CONF_WINTER_MONTHS, DOMAIN, P_MOISTURE, P_NAME
 from .entity import PlanteEntity, StedEntity
 
 
@@ -41,6 +41,8 @@ class TrengerVannAntall(StedEntity, SensorEntity):
             "planter": [p.get(P_NAME) for p in c.plants],
             "trenger_vann": c.due_names(),
             "sist_varslet": c.last_notified.isoformat() if c.last_notified else None,
+            "sesong": "vinter" if c.is_winter() else "sommer",
+            "vintermaaneder": c.cfg.get(CONF_WINTER_MONTHS),
         }
 
 

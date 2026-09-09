@@ -19,7 +19,9 @@ Per plante (egen enhet med plantens navn, f.eks. `arekapalme_*`):
 |---|---|
 | `binary_sensor.<plante>_trenger_vann` | on når intervallet er passert. Attributter: `navn`, `latin`, `ikon`, `tips`, `intervall_dager`, `sist_vannet`, `dager_siden`, `dager_igjen`, `neste_vanning`, `prosent`, `status`, `sted` |
 | `datetime.<plante>_sist_vannet` | redigerbar |
-| `number.<plante>_intervall` | dager (1–60), endres uten reload |
+| `number.<plante>_intervall` | sommerintervall i dager (1–60) |
+| `number.<plante>_intervall_vinter` | vinterintervall (0 = samme som sommer). Vintermånedene settes under Varsling (standard nov–mar) |
+| `number.<plante>_fuktighet_min`, `switch.<plante>_auto_registrer` | bare med fuktighetssensor: «tørr jord» under terskelen overstyrer intervallet, og fuktig jord utsetter vanning. Hopper fuktigheten ≥ 15 pp opp, registreres vanning automatisk |
 | `button.<plante>_vannet_na` | registrer vanning nå |
 | `sensor.<plante>_dager_siden_vannet`, `sensor.<plante>_neste_vanning` | |
 
@@ -41,3 +43,7 @@ Varsel sendes til valgt `notify.*`-tjeneste på valgt klokkeslett når minst én
 ## Migrering fra YAML-pakken
 Legg til plantene med samme intervall, trykk «Vannet nå» (eller sett `datetime.<plante>_sist_vannet` til gammel verdi),
 slett pakken og automasjonen `planter_sebastian_varsel`.
+
+## v1.1.0
+- Sommer-/vinterintervall per plante, vintermåneder per sted (attributt `sesong`).
+- Valgfri jordfuktighetssensor per plante (`fuktighet`, `fuktighet_min`, `grunn` i attributtene).

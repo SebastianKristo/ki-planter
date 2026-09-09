@@ -8,22 +8,27 @@ from typing import Any, Callable
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.event import async_track_time_change, async_track_time_interval
+from homeassistant.helpers.event import async_track_state_change_event, async_track_time_change, async_track_time_interval
 from homeassistant.util import dt as dt_util, slugify
 
 from .const import (
-    CONF_NAME, CONF_NOTIFY, DOMAIN, CONF_NOTIFY_ON, CONF_NOTIFY_TIME, CONF_NOTIFY_URL, CONF_PLANTS, DEFAULT_ICON,
-    DEFAULT_INTERVAL, DEFAULTS, P_ICON, P_ID, P_INTERVAL, P_LAST, P_LATIN, P_NAME, P_TIP,
+    CONF_NAME, CONF_NOTIFY, CONF_WINTER_MONTHS, DOMAIN, CONF_NOTIFY_ON, CONF_NOTIFY_TIME, CONF_NOTIFY_URL, CONF_PLANTS, DEFAULT_ICON,
+    DEFAULT_INTERVAL, DEFAULT_MOISTURE_MIN, DEFAULTS, MOISTURE_JUMP, P_AUTO_WATERED, P_ICON, P_ID, P_INTERVAL, P_INTERVAL_WINTER,
+    P_LAST, P_LATIN, P_MOISTURE, P_MOISTURE_MIN, P_NAME, P_TIP,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class PlantStatus:
-    __slots__ = ("interval", "last", "days_since", "days_left", "next", "pct", "due", "text")
+    __slots__ = ("interval", "last", "days_since", "days_left", "next", "pct", "due", "text", "season", "moisture", "moisture_min", "reason")
 
-    def __init__(self, plant: dict[str, Any], now: datetime) -> None:
-        self.interval = float(plant.get(P_INTERVAL) or DEFAULT_INTERVAL)
+    def __init__(self, plant: dict[str, Any], now: datetime, winter: bool = False, moisture: float | None = None) -> None:
+        self.season = "vinter" if winter else "sommer"
+        winter_iv = plant.get(P_INTERVAL_WINTER) or 0
+        self.interval = float((winter_iv if winter and winter_iv else plant.get(P_INTERVAL)) or DEFAULT_INTERVAL)
+        self.moisture = moisture
+        self.moisture_min = float(plant.get(P_MOISTURE_MIN) or DEFAULT_MOISTURE_MIN)
         self.last = dt_util.parse_datetime(plant.get(P_LAST) or "") if plant.get(P_LAST) else None
         if self.last is not None:
             self.last = dt_util.as_local(self.last)
@@ -49,6 +54,15 @@ class PlantStatus:
         else:
             n = -self.days_left
             self.text = f"{n} {'dag' if n == 1 else 'dager'} over tiden"
+        self.reason = "intervall" if self.due else None
+        if self.moisture is not None:
+            if self.moisture < self.moisture_min:
+                self.due, self.reason = True, "tørr jord"
+                self.text = f"Tørr jord ({self.moisture:.0f} %)"
+            elif self.due and self.last is not None:
+                # jorda er fortsatt fuktig – ikke mas selv om intervallet er passert
+                self.due, self.reason = False, None
+                self.text = f"Fuktig ({self.moisture:.0f} %)"
 
 
 class PlanterCoordinator:
@@ -71,17 +85,36 @@ class PlanterCoordinator:
     def plant(self, plant_id: str) -> dict[str, Any] | None:
         return next((p for p in self.plants if p.get(P_ID) == plant_id), None)
 
+    def is_winter(self, now: datetime | None = None) -> bool:
+        months = self.cfg.get(CONF_WINTER_MONTHS) or []
+        return (now or dt_util.now()).month in [int(m) for m in months]
+
+    def moisture(self, plant: dict[str, Any]) -> float | None:
+        ent = plant.get(P_MOISTURE)
+        if not ent:
+            return None
+        st = self.hass.states.get(ent)
+        if st is None or st.state in ("unknown", "unavailable", ""):
+            return None
+        try:
+            return float(st.state)
+        except ValueError:
+            return None
+
+    def _status_of(self, p: dict[str, Any], now: datetime) -> PlantStatus:
+        return PlantStatus(p, now, self.is_winter(now), self.moisture(p))
+
     def status(self, plant_id: str) -> PlantStatus | None:
         p = self.plant(plant_id)
-        return PlantStatus(p, dt_util.now()) if p else None
+        return self._status_of(p, dt_util.now()) if p else None
 
     def due_count(self) -> int:
         now = dt_util.now()
-        return sum(1 for p in self.plants if PlantStatus(p, now).due)
+        return sum(1 for p in self.plants if self._status_of(p, now).due)
 
     def due_names(self) -> list[str]:
         now = dt_util.now()
-        return [p.get(P_NAME) or p.get(P_ID) for p in self.plants if PlantStatus(p, now).due]
+        return [p.get(P_NAME) or p.get(P_ID) for p in self.plants if self._status_of(p, now).due]
 
     @staticmethod
     def normalize(p: dict[str, Any]) -> dict[str, Any]:
@@ -92,6 +125,10 @@ class PlanterCoordinator:
             P_LATIN: (p.get(P_LATIN) or "").strip(),
             P_ICON: p.get(P_ICON) or DEFAULT_ICON,
             P_INTERVAL: int(p.get(P_INTERVAL) or DEFAULT_INTERVAL),
+            P_INTERVAL_WINTER: int(p.get(P_INTERVAL_WINTER) or 0),
+            P_MOISTURE: p.get(P_MOISTURE) or None,
+            P_MOISTURE_MIN: int(p.get(P_MOISTURE_MIN) or DEFAULT_MOISTURE_MIN),
+            P_AUTO_WATERED: bool(p.get(P_AUTO_WATERED, True)),
             P_TIP: (p.get(P_TIP) or "").strip(),
             P_LAST: p.get(P_LAST),
         }
@@ -107,6 +144,27 @@ class PlanterCoordinator:
         self._unsubs.append(async_track_time_interval(self.hass, self._on_tick, timedelta(minutes=15)))
         self._unsubs.append(async_track_time_change(self.hass, self._on_midnight, hour=0, minute=0, second=5))
         self._unsubs.append(async_track_time_change(self.hass, self._on_notify_time, second=0))
+        sensors = [p[P_MOISTURE] for p in self.plants if p.get(P_MOISTURE)]
+        if sensors:
+            self._unsubs.append(async_track_state_change_event(self.hass, sensors, self._on_moisture))
+
+    async def _on_moisture(self, event) -> None:
+        """Fuktigheten hoppet opp → planten ble vannet (hvis auto-registrering er på)."""
+        ent = event.data["entity_id"]
+        new, old = event.data.get("new_state"), event.data.get("old_state")
+        try:
+            nv = float(new.state) if new else None
+            ov = float(old.state) if old else None
+        except (ValueError, AttributeError):
+            nv = ov = None
+        for p in self.plants:
+            if p.get(P_MOISTURE) != ent:
+                continue
+            if nv is not None and ov is not None and p.get(P_AUTO_WATERED, True) and nv - ov >= MOISTURE_JUMP:
+                _LOGGER.info("%s: fuktighet %s → %s, registrerer vanning", p.get(P_NAME), ov, nv)
+                await self.async_watered(p[P_ID])
+                return
+        self._notify()
 
     @callback
     def async_stop(self) -> None:
