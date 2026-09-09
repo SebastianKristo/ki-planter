@@ -1,0 +1,136 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sted",
+        "description": "Ett sted per oppføring, f.eks. «Sebastians soverom». Plantene legges til i neste steg.",
+        "data": {
+          "name": "Navn på stedet"
+        }
+      },
+      "varsling": {
+        "title": "Varsling",
+        "data": {
+          "notify_service": "Varsel-tjeneste (f.eks. notify.mobile_app_sebastians_iphone) – tom = ingen varsel",
+          "notify_time": "Klokkeslett for varsel",
+          "notify_enabled": "Varsling på",
+          "notify_url": "Lenke som åpnes fra varselet (f.eks. /lovelace/soverom#planter)"
+        }
+      },
+      "plante": {
+        "title": "Legg til plante",
+        "description": "{antall} plante(r) lagt til.",
+        "data": {
+          "name": "Navn",
+          "latin": "Latinsk navn",
+          "icon": "Ikon",
+          "interval": "Vanningsintervall (dager)",
+          "tip": "Stelltips (vises i kortet)",
+          "legg_til_flere": "Legg til enda en plante etterpå"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Dette stedet finnes allerede"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "KI Planter",
+        "menu_options": {
+          "legg_til": "Legg til plante",
+          "rediger": "Rediger plante",
+          "fjern": "Fjern plante",
+          "varsling": "Varsling"
+        }
+      },
+      "legg_til": {
+        "title": "Legg til plante",
+        "data": {
+          "name": "Navn",
+          "latin": "Latinsk navn",
+          "icon": "Ikon",
+          "interval": "Vanningsintervall (dager)",
+          "tip": "Stelltips (vises i kortet)"
+        }
+      },
+      "rediger": {
+        "title": "Hvilken plante?",
+        "data": {
+          "plante": "Plante"
+        }
+      },
+      "rediger_plante": {
+        "title": "Rediger {navn}",
+        "data": {
+          "name": "Navn",
+          "latin": "Latinsk navn",
+          "icon": "Ikon",
+          "interval": "Vanningsintervall (dager)",
+          "tip": "Stelltips (vises i kortet)"
+        }
+      },
+      "fjern": {
+        "title": "Fjern plante",
+        "description": "Entitetene for planten fjernes.",
+        "data": {
+          "plante": "Plante"
+        }
+      },
+      "varsling": {
+        "title": "Varsling",
+        "data": {
+          "notify_service": "Varsel-tjeneste (f.eks. notify.mobile_app_sebastians_iphone) – tom = ingen varsel",
+          "notify_time": "Klokkeslett for varsel",
+          "notify_enabled": "Varsling på",
+          "notify_url": "Lenke som åpnes fra varselet (f.eks. /lovelace/soverom#planter)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "trenger_vann": {
+        "name": "Trenger vann"
+      }
+    },
+    "sensor": {
+      "trenger_vann_antall": {
+        "name": "Trenger vann"
+      },
+      "dager_siden_vannet": {
+        "name": "Dager siden vannet"
+      },
+      "neste_vanning": {
+        "name": "Neste vanning"
+      }
+    },
+    "datetime": {
+      "sist_vannet": {
+        "name": "Sist vannet"
+      }
+    },
+    "number": {
+      "intervall": {
+        "name": "Intervall"
+      }
+    },
+    "button": {
+      "vannet_naa": {
+        "name": "Vannet nå"
+      },
+      "alle_vannet": {
+        "name": "Alle vannet"
+      },
+      "send_varsel": {
+        "name": "Send varsel"
+      }
+    },
+    "switch": {
+      "varsling": {
+        "name": "Varsling"
+      }
+    }
+  }
+}

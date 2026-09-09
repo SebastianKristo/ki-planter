@@ -1,0 +1,191 @@
+"""Holder rede på plantene på ett sted og sender varsel."""
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timedelta
+from typing import Any, Callable
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.event import async_track_time_change, async_track_time_interval
+from homeassistant.util import dt as dt_util, slugify
+
+from .const import (
+    CONF_NAME, CONF_NOTIFY, DOMAIN, CONF_NOTIFY_ON, CONF_NOTIFY_TIME, CONF_NOTIFY_URL, CONF_PLANTS, DEFAULT_ICON,
+    DEFAULT_INTERVAL, DEFAULTS, P_ICON, P_ID, P_INTERVAL, P_LAST, P_LATIN, P_NAME, P_TIP,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class PlantStatus:
+    __slots__ = ("interval", "last", "days_since", "days_left", "next", "pct", "due", "text")
+
+    def __init__(self, plant: dict[str, Any], now: datetime) -> None:
+        self.interval = float(plant.get(P_INTERVAL) or DEFAULT_INTERVAL)
+        self.last = dt_util.parse_datetime(plant.get(P_LAST) or "") if plant.get(P_LAST) else None
+        if self.last is not None:
+            self.last = dt_util.as_local(self.last)
+            elapsed = (now - self.last).total_seconds() / 86400
+            self.days_since = int(elapsed)
+            self.days_left = int(-(-(self.interval - elapsed) // 1))  # ceil
+            self.next = self.last + timedelta(days=self.interval)
+            self.pct = max(0.0, min(100.0, elapsed / self.interval * 100))
+            self.due = self.days_left <= 0
+        else:
+            self.days_since = self.days_left = None
+            self.next = None
+            self.pct = 0.0
+            self.due = True
+        if self.last is None:
+            self.text = "Ikke vannet ennå"
+        elif self.days_left > 1:
+            self.text = f"Om {self.days_left} dager"
+        elif self.days_left == 1:
+            self.text = "I morgen"
+        elif self.days_left == 0:
+            self.text = "Vann i dag"
+        else:
+            n = -self.days_left
+            self.text = f"{n} {'dag' if n == 1 else 'dager'} over tiden"
+
+
+class PlanterCoordinator:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        self.hass = hass
+        self.entry = entry
+        self.cfg: dict[str, Any] = {**DEFAULTS, **entry.data, **entry.options}
+        self.name: str = self.cfg[CONF_NAME]
+        self.prefix = slugify(f"{self.name} planter")
+        self.self_update = False
+        self.last_notified: datetime | None = None
+        self._listeners: set[Callable[[], None]] = set()
+        self._unsubs: list[Callable[[], None]] = []
+
+    # ---------------------------------------------------------------- planter
+    @property
+    def plants(self) -> list[dict[str, Any]]:
+        return [dict(p) for p in (self.cfg.get(CONF_PLANTS) or [])]
+
+    def plant(self, plant_id: str) -> dict[str, Any] | None:
+        return next((p for p in self.plants if p.get(P_ID) == plant_id), None)
+
+    def status(self, plant_id: str) -> PlantStatus | None:
+        p = self.plant(plant_id)
+        return PlantStatus(p, dt_util.now()) if p else None
+
+    def due_count(self) -> int:
+        now = dt_util.now()
+        return sum(1 for p in self.plants if PlantStatus(p, now).due)
+
+    def due_names(self) -> list[str]:
+        now = dt_util.now()
+        return [p.get(P_NAME) or p.get(P_ID) for p in self.plants if PlantStatus(p, now).due]
+
+    @staticmethod
+    def normalize(p: dict[str, Any]) -> dict[str, Any]:
+        name = (p.get(P_NAME) or "").strip()
+        return {
+            P_ID: p.get(P_ID) or slugify(name),
+            P_NAME: name,
+            P_LATIN: (p.get(P_LATIN) or "").strip(),
+            P_ICON: p.get(P_ICON) or DEFAULT_ICON,
+            P_INTERVAL: int(p.get(P_INTERVAL) or DEFAULT_INTERVAL),
+            P_TIP: (p.get(P_TIP) or "").strip(),
+            P_LAST: p.get(P_LAST),
+        }
+
+    # ---------------------------------------------------------------- oppsett
+    async def async_start(self) -> None:
+        # Registrer stedets enhet først, så plantene kan peke på den med via_device
+        dr.async_get(self.hass).async_get_or_create(
+            config_entry_id=self.entry.entry_id,
+            identifiers={(DOMAIN, self.entry.entry_id)},
+            name=f"{self.name} planter", manufacturer="KI", model="Planter",
+        )
+        self._unsubs.append(async_track_time_interval(self.hass, self._on_tick, timedelta(minutes=15)))
+        self._unsubs.append(async_track_time_change(self.hass, self._on_midnight, hour=0, minute=0, second=5))
+        self._unsubs.append(async_track_time_change(self.hass, self._on_notify_time, second=0))
+
+    @callback
+    def async_stop(self) -> None:
+        for u in self._unsubs:
+            u()
+        self._unsubs.clear()
+
+    @callback
+    def async_add_listener(self, cb: Callable[[], None]) -> Callable[[], None]:
+        self._listeners.add(cb)
+        return lambda: self._listeners.discard(cb)
+
+    def _notify(self) -> None:
+        for cb in list(self._listeners):
+            cb()
+
+    async def _on_tick(self, _now: datetime) -> None:
+        self._notify()
+
+    async def _on_midnight(self, _now: datetime) -> None:
+        self._notify()
+
+    # ---------------------------------------------------------------- lagring
+    def _save(self, **changes: Any) -> None:
+        self.cfg.update(changes)
+        self.self_update = True
+        self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options, **changes})
+        self._notify()
+
+    async def async_set_setting(self, key: str, value: Any) -> None:
+        self._save(**{key: value})
+
+    async def async_update_plant(self, plant_id: str, **fields: Any) -> None:
+        plants = self.plants
+        for p in plants:
+            if p.get(P_ID) == plant_id:
+                p.update(fields)
+                break
+        self._save(**{CONF_PLANTS: plants})
+
+    async def async_watered(self, plant_id: str, when: datetime | None = None) -> None:
+        when = when or dt_util.now()
+        await self.async_update_plant(plant_id, **{P_LAST: dt_util.as_utc(when).isoformat()})
+
+    async def async_water_all_due(self) -> None:
+        now = dt_util.now()
+        plants = self.plants
+        for p in plants:
+            if PlantStatus(p, now).due:
+                p[P_LAST] = dt_util.as_utc(now).isoformat()
+        self._save(**{CONF_PLANTS: plants})
+
+    # ---------------------------------------------------------------- varsel
+    async def _on_notify_time(self, now: datetime) -> None:
+        if not self.cfg.get(CONF_NOTIFY_ON) or not self.cfg.get(CONF_NOTIFY):
+            return
+        now = dt_util.as_local(now)
+        hh, mm = (self.cfg.get(CONF_NOTIFY_TIME) or "18:00").split(":")[:2]
+        if (now.hour, now.minute) != (int(hh), int(mm)):
+            return
+        names = self.due_names()
+        if not names:
+            return
+        await self.async_send_notification(names)
+
+    async def async_send_notification(self, names: list[str] | None = None) -> None:
+        names = names if names is not None else self.due_names()
+        svc = self.cfg.get(CONF_NOTIFY) or ""
+        if "." not in svc or not names:
+            return
+        domain, service = svc.split(".", 1)
+        message = f"{' og '.join(names)} trenger vann." if len(names) < 3 else f"{len(names)} planter trenger vann: {', '.join(names)}."
+        data: dict[str, Any] = {"title": f"Planter – {self.name}", "message": message}
+        url = self.cfg.get(CONF_NOTIFY_URL)
+        if url:
+            data["data"] = {"url": url}
+        try:
+            await self.hass.services.async_call(domain, service, data, blocking=False)
+            self.last_notified = dt_util.now()
+            self._notify()
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("%s: varsel feilet (%s): %s", self.name, svc, err)
