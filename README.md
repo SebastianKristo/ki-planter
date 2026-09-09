@@ -19,8 +19,8 @@ Per plante (egen enhet med plantens navn, f.eks. `arekapalme_*`):
 |---|---|
 | `binary_sensor.<plante>_trenger_vann` | on når intervallet er passert. Attributter: `navn`, `latin`, `ikon`, `tips`, `intervall_dager`, `sist_vannet`, `dager_siden`, `dager_igjen`, `neste_vanning`, `prosent`, `status`, `sted` |
 | `datetime.<plante>_sist_vannet` | redigerbar |
-| `number.<plante>_intervall` | sommerintervall i dager (1–60) |
-| `number.<plante>_intervall_vinter` | vinterintervall (0 = samme som sommer). Vintermånedene settes under Varsling (standard nov–mar) |
+| `number.<plante>_intervall` | intervall i vekstsesongen (dager) |
+| `number.<plante>_intervall_hoysommer`, `_intervall_vinter` | intervall i høysommer / vinterhvile (0 = som vekstsesong) |
 | `number.<plante>_fuktighet_min`, `switch.<plante>_auto_registrer` | bare med fuktighetssensor: «tørr jord» under terskelen overstyrer intervallet, og fuktig jord utsetter vanning. Hopper fuktigheten ≥ 15 pp opp, registreres vanning automatisk |
 | `button.<plante>_vannet_na` | registrer vanning nå |
 | `sensor.<plante>_dager_siden_vannet`, `sensor.<plante>_neste_vanning` | |
@@ -47,3 +47,18 @@ slett pakken og automasjonen `planter_sebastian_varsel`.
 ## v1.1.0
 - Sommer-/vinterintervall per plante, vintermåneder per sted (attributt `sesong`).
 - Valgfri jordfuktighetssensor per plante (`fuktighet`, `fuktighet_min`, `grunn` i attributtene).
+
+## v1.2.0 – sesong etter daglengde
+Sesongen bestemmes som standard av **daglengden** på HA sin posisjon (ikke kalendermåned), fordi det er lyset som avgjør om
+plantene vokser. Under Varsling velger du terskler:
+
+| Sesong | Standard | Oslo (59,9 °N) |
+|---|---|---|
+| ❄ Vinterhvile | daglengde < 10 t | ca. 15. okt – 26. feb (9,5 t gir ca. 20. okt – 20. feb) |
+| 🌱 Vekstsesong | 10–17 t | vår og sensommer/høst |
+| ☀ Høysommer | > 17 t | ca. 14. mai – 30. juli |
+
+Stedets `sensor.<sted>_trenger_vann` har attributtene `sesong`, `daglengde_timer` og `sesongskifter` (datoene i år).
+Vil du heller ha faste måneder, velg «Faste måneder» og vintermåneder.
+
+Forslag for et sørvindu i Oslo: Arekapalme 6 / 5 / 13 dager (vekst / høysommer / vinter), Palmelilje 11 / 11 / 25 dager.

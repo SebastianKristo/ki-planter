@@ -15,7 +15,10 @@
           "notify_time": "Klokkeslett for varsel",
           "notify_enabled": "Varsling på",
           "notify_url": "Lenke som åpnes fra varselet (f.eks. /lovelace/soverom#planter)",
-          "winter_months": "Vintermåneder (vinterintervallet gjelder)"
+          "winter_months": "Vintermåneder (bare ved «Faste måneder»)",
+          "season_mode": "Sesong bestemmes av",
+          "winter_hours": "Vinterhvile når daglengden er under",
+          "summer_hours": "Høysommer når daglengden er over"
         }
       },
       "plante": {
@@ -25,13 +28,14 @@
           "name": "Navn",
           "latin": "Latinsk navn",
           "icon": "Ikon",
-          "interval": "Vanningsintervall om sommeren (dager)",
+          "interval": "Vanningsintervall i vekstsesongen (dager)",
           "tip": "Stelltips (vises i kortet)",
           "legg_til_flere": "Legg til enda en plante etterpå",
-          "interval_winter": "Vanningsintervall om vinteren (dager, tom = samme som sommer)",
+          "interval_winter": "Intervall i vinterhvile (dager, tom = som vekstsesong)",
           "moisture_sensor": "Jordfuktighetssensor (valgfri, %)",
           "moisture_min": "Trenger vann når fuktigheten er under",
-          "auto_watered": "Registrer vanning automatisk når fuktigheten hopper opp"
+          "auto_watered": "Registrer vanning automatisk når fuktigheten hopper opp",
+          "interval_summer": "Intervall i høysommer (dager, tom = som vekstsesong)"
         }
       }
     },
@@ -56,12 +60,13 @@
           "name": "Navn",
           "latin": "Latinsk navn",
           "icon": "Ikon",
-          "interval": "Vanningsintervall om sommeren (dager)",
+          "interval": "Vanningsintervall i vekstsesongen (dager)",
           "tip": "Stelltips (vises i kortet)",
-          "interval_winter": "Vanningsintervall om vinteren (dager, tom = samme som sommer)",
+          "interval_winter": "Intervall i vinterhvile (dager, tom = som vekstsesong)",
           "moisture_sensor": "Jordfuktighetssensor (valgfri, %)",
           "moisture_min": "Trenger vann når fuktigheten er under",
-          "auto_watered": "Registrer vanning automatisk når fuktigheten hopper opp"
+          "auto_watered": "Registrer vanning automatisk når fuktigheten hopper opp",
+          "interval_summer": "Intervall i høysommer (dager, tom = som vekstsesong)"
         }
       },
       "rediger": {
@@ -76,12 +81,13 @@
           "name": "Navn",
           "latin": "Latinsk navn",
           "icon": "Ikon",
-          "interval": "Vanningsintervall om sommeren (dager)",
+          "interval": "Vanningsintervall i vekstsesongen (dager)",
           "tip": "Stelltips (vises i kortet)",
-          "interval_winter": "Vanningsintervall om vinteren (dager, tom = samme som sommer)",
+          "interval_winter": "Intervall i vinterhvile (dager, tom = som vekstsesong)",
           "moisture_sensor": "Jordfuktighetssensor (valgfri, %)",
           "moisture_min": "Trenger vann når fuktigheten er under",
-          "auto_watered": "Registrer vanning automatisk når fuktigheten hopper opp"
+          "auto_watered": "Registrer vanning automatisk når fuktigheten hopper opp",
+          "interval_summer": "Intervall i høysommer (dager, tom = som vekstsesong)"
         }
       },
       "fjern": {
@@ -98,7 +104,10 @@
           "notify_time": "Klokkeslett for varsel",
           "notify_enabled": "Varsling på",
           "notify_url": "Lenke som åpnes fra varselet (f.eks. /lovelace/soverom#planter)",
-          "winter_months": "Vintermåneder (vinterintervallet gjelder)"
+          "winter_months": "Vintermåneder (bare ved «Faste måneder»)",
+          "season_mode": "Sesong bestemmes av",
+          "winter_hours": "Vinterhvile når daglengden er under",
+          "summer_hours": "Høysommer når daglengden er over"
         }
       }
     }
@@ -134,6 +143,9 @@
       },
       "fuktighet_min": {
         "name": "Fuktighet min"
+      },
+      "intervall_hoysommer": {
+        "name": "Intervall høysommer"
       }
     },
     "button": {

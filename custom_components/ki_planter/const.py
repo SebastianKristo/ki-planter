@@ -8,7 +8,11 @@ CONF_NOTIFY = "notify_service"     # f.eks. notify.mobile_app_sebastians_iphone
 CONF_NOTIFY_TIME = "notify_time"   # "18:00"
 CONF_NOTIFY_ON = "notify_enabled"
 CONF_NOTIFY_URL = "notify_url"     # åpnes fra varselet, f.eks. /lovelace/soverom#planter
-CONF_WINTER_MONTHS = "winter_months"   # måneder som regnes som vinter (1–12)
+CONF_WINTER_MONTHS = "winter_months"   # måneder som regnes som vinter (1–12) – brukes når season_mode = months
+CONF_SEASON_MODE = "season_mode"       # daylength (standard) | months
+CONF_WINTER_HOURS = "winter_hours"     # daglengde under dette = vinterhvile
+CONF_SUMMER_HOURS = "summer_hours"     # daglengde over dette = høysommer
+SEASON_WINTER, SEASON_GROWTH, SEASON_SUMMER = "vinter", "vekst", "høysommer"
 
 # Felter per plante
 P_ID = "id"
@@ -16,7 +20,8 @@ P_NAME = "name"
 P_LATIN = "latin"
 P_ICON = "icon"
 P_INTERVAL = "interval"            # dager (sommer / standard)
-P_INTERVAL_WINTER = "interval_winter"   # dager om vinteren (0/tom = samme som sommer)
+P_INTERVAL_WINTER = "interval_winter"   # dager i vinterhvile (0/tom = samme som vekstsesong)
+P_INTERVAL_SUMMER = "interval_summer"   # dager i høysommer (0/tom = samme som vekstsesong)
 P_MOISTURE = "moisture_sensor"     # sensor.* med jordfuktighet i %
 P_MOISTURE_MIN = "moisture_min"    # under dette = trenger vann (%)
 P_AUTO_WATERED = "auto_watered"    # registrer vanning automatisk når fuktigheten hopper opp
@@ -36,4 +41,7 @@ DEFAULTS = {
     CONF_NOTIFY_ON: True,
     CONF_NOTIFY_URL: "",
     CONF_WINTER_MONTHS: DEFAULT_WINTER_MONTHS,
+    CONF_SEASON_MODE: "daylength",
+    CONF_WINTER_HOURS: 10.0,
+    CONF_SUMMER_HOURS: 17.0,
 }

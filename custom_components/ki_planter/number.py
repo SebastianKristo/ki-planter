@@ -6,7 +6,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DEFAULT_INTERVAL, DEFAULT_MOISTURE_MIN, DOMAIN, P_INTERVAL, P_INTERVAL_WINTER, P_MOISTURE, P_MOISTURE_MIN
+from .const import DEFAULT_INTERVAL, DEFAULT_MOISTURE_MIN, DOMAIN, P_INTERVAL, P_INTERVAL_SUMMER, P_INTERVAL_WINTER, P_MOISTURE, P_MOISTURE_MIN
 from .entity import PlanteEntity
 
 
@@ -15,7 +15,8 @@ async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddE
     ents = []
     for p in c.plants:
         ents += [PlantNumber(c, p, "intervall", P_INTERVAL, "mdi:weather-sunny", 1, 60, 1, "d", DEFAULT_INTERVAL),
-                 PlantNumber(c, p, "intervall_vinter", P_INTERVAL_WINTER, "mdi:snowflake", 0, 90, 1, "d", 0)]
+                 PlantNumber(c, p, "intervall_vinter", P_INTERVAL_WINTER, "mdi:snowflake", 0, 90, 1, "d", 0),
+                 PlantNumber(c, p, "intervall_hoysommer", P_INTERVAL_SUMMER, "mdi:white-balance-sunny", 0, 60, 1, "d", 0)]
         if p.get(P_MOISTURE):
             ents.append(PlantNumber(c, p, "fuktighet_min", P_MOISTURE_MIN, "mdi:water-percent", 5, 80, 1, "%", DEFAULT_MOISTURE_MIN))
     async_add_entities(ents)

@@ -10,8 +10,8 @@ from homeassistant.helpers import selector
 from homeassistant.util import slugify
 
 from .const import (
-    CONF_NAME, CONF_NOTIFY, CONF_NOTIFY_ON, CONF_NOTIFY_TIME, CONF_NOTIFY_URL, CONF_PLANTS, CONF_WINTER_MONTHS, DEFAULT_ICON,
-    DEFAULT_INTERVAL, DEFAULT_MOISTURE_MIN, DEFAULTS, DOMAIN, P_AUTO_WATERED, P_ICON, P_ID, P_INTERVAL, P_INTERVAL_WINTER, P_LAST,
+    CONF_NAME, CONF_NOTIFY, CONF_NOTIFY_ON, CONF_NOTIFY_TIME, CONF_NOTIFY_URL, CONF_PLANTS, CONF_SEASON_MODE, CONF_SUMMER_HOURS, CONF_WINTER_HOURS, CONF_WINTER_MONTHS, DEFAULT_ICON,
+    DEFAULT_INTERVAL, DEFAULT_MOISTURE_MIN, DEFAULTS, DOMAIN, P_AUTO_WATERED, P_ICON, P_ID, P_INTERVAL, P_INTERVAL_SUMMER, P_INTERVAL_WINTER, P_LAST,
     P_LATIN, P_MOISTURE, P_MOISTURE_MIN, P_NAME, P_TIP,
 )
 from .coordinator import PlanterCoordinator
@@ -37,6 +37,13 @@ def varsling_schema(d: dict[str, Any]) -> vol.Schema:
         vol.Required(CONF_NOTIFY_TIME, default=g(CONF_NOTIFY_TIME)): selector.TimeSelector(),
         vol.Required(CONF_NOTIFY_ON, default=g(CONF_NOTIFY_ON)): selector.BooleanSelector(),
         vol.Optional(CONF_NOTIFY_URL, description=_sv(d, CONF_NOTIFY_URL)): str,
+        vol.Required(CONF_SEASON_MODE, default=g(CONF_SEASON_MODE)): selector.SelectSelector(selector.SelectSelectorConfig(
+            mode=selector.SelectSelectorMode.LIST, options=[selector.SelectOptionDict(value="daylength", label="Daglengde (beregnet fra HA sin posisjon)"),
+                                                            selector.SelectOptionDict(value="months", label="Faste måneder")])),
+        vol.Required(CONF_WINTER_HOURS, default=g(CONF_WINTER_HOURS)): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=6, max=14, step=0.5, mode=selector.NumberSelectorMode.BOX, unit_of_measurement="t")),
+        vol.Required(CONF_SUMMER_HOURS, default=g(CONF_SUMMER_HOURS)): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=14, max=22, step=0.5, mode=selector.NumberSelectorMode.BOX, unit_of_measurement="t")),
         vol.Required(CONF_WINTER_MONTHS, default=[str(m) for m in g(CONF_WINTER_MONTHS)]): selector.SelectSelector(
             selector.SelectSelectorConfig(multiple=True, mode=selector.SelectSelectorMode.LIST, options=[
                 selector.SelectOptionDict(value=str(i), label=n) for i, n in enumerate(
@@ -51,6 +58,8 @@ def plante_schema(p: dict[str, Any], more: bool = False) -> vol.Schema:
         vol.Required(P_ICON, default=p.get(P_ICON, DEFAULT_ICON)): selector.IconSelector(),
         vol.Required(P_INTERVAL, default=p.get(P_INTERVAL, DEFAULT_INTERVAL)): selector.NumberSelector(
             selector.NumberSelectorConfig(min=1, max=60, step=1, mode=selector.NumberSelectorMode.BOX, unit_of_measurement="d")),
+        vol.Optional(P_INTERVAL_SUMMER, description=_sv(p, P_INTERVAL_SUMMER)): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=0, max=60, step=1, mode=selector.NumberSelectorMode.BOX, unit_of_measurement="d")),
         vol.Optional(P_INTERVAL_WINTER, description=_sv(p, P_INTERVAL_WINTER)): selector.NumberSelector(
             selector.NumberSelectorConfig(min=0, max=90, step=1, mode=selector.NumberSelectorMode.BOX, unit_of_measurement="d")),
         vol.Optional(P_MOISTURE, description=_sv(p, P_MOISTURE)): selector.EntitySelector(
@@ -173,5 +182,6 @@ class KiPlanterOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             return self._save(**{CONF_NOTIFY: user_input.get(CONF_NOTIFY, ""), CONF_NOTIFY_TIME: user_input[CONF_NOTIFY_TIME],
                                  CONF_NOTIFY_ON: user_input[CONF_NOTIFY_ON], CONF_NOTIFY_URL: user_input.get(CONF_NOTIFY_URL, ""),
-                                 CONF_WINTER_MONTHS: [int(m) for m in user_input.get(CONF_WINTER_MONTHS, [])]})
+                                 CONF_WINTER_MONTHS: [int(m) for m in user_input.get(CONF_WINTER_MONTHS, [])],
+                                 CONF_SEASON_MODE: user_input[CONF_SEASON_MODE], CONF_WINTER_HOURS: user_input[CONF_WINTER_HOURS], CONF_SUMMER_HOURS: user_input[CONF_SUMMER_HOURS]})
         return self.async_show_form(step_id="varsling", data_schema=varsling_schema(self._entry.options))

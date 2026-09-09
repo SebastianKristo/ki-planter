@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime, timedelta
 from typing import Any, Callable
 
@@ -12,7 +13,8 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.util import dt as dt_util, slugify
 
 from .const import (
-    CONF_NAME, CONF_NOTIFY, CONF_WINTER_MONTHS, DOMAIN, CONF_NOTIFY_ON, CONF_NOTIFY_TIME, CONF_NOTIFY_URL, CONF_PLANTS, DEFAULT_ICON,
+    CONF_NAME, CONF_NOTIFY, CONF_SEASON_MODE, CONF_SUMMER_HOURS, CONF_WINTER_HOURS, CONF_WINTER_MONTHS, DOMAIN,
+    P_INTERVAL_SUMMER, SEASON_GROWTH, SEASON_SUMMER, SEASON_WINTER, CONF_NOTIFY_ON, CONF_NOTIFY_TIME, CONF_NOTIFY_URL, CONF_PLANTS, DEFAULT_ICON,
     DEFAULT_INTERVAL, DEFAULT_MOISTURE_MIN, DEFAULTS, MOISTURE_JUMP, P_AUTO_WATERED, P_ICON, P_ID, P_INTERVAL, P_INTERVAL_WINTER,
     P_LAST, P_LATIN, P_MOISTURE, P_MOISTURE_MIN, P_NAME, P_TIP,
 )
@@ -20,13 +22,37 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def day_length_hours(latitude: float, when: datetime) -> float:
+    """Daglengde i timer (soloppgang→solnedgang, med refraksjon) for en breddegrad og dato."""
+    doy = when.timetuple().tm_yday
+    decl = math.radians(23.44) * math.sin(math.radians(360.0 / 365.0 * (doy - 81)))
+    lat = math.radians(latitude)
+    zen = math.radians(90.833)
+    cos_h = (math.cos(zen) - math.sin(lat) * math.sin(decl)) / (math.cos(lat) * math.cos(decl))
+    if cos_h <= -1:
+        return 24.0
+    if cos_h >= 1:
+        return 0.0
+    return 2 * math.degrees(math.acos(cos_h)) / 15.0
+
+
 class PlantStatus:
     __slots__ = ("interval", "last", "days_since", "days_left", "next", "pct", "due", "text", "season", "moisture", "moisture_min", "reason")
 
-    def __init__(self, plant: dict[str, Any], now: datetime, winter: bool = False, moisture: float | None = None) -> None:
-        self.season = "vinter" if winter else "sommer"
-        winter_iv = plant.get(P_INTERVAL_WINTER) or 0
-        self.interval = float((winter_iv if winter and winter_iv else plant.get(P_INTERVAL)) or DEFAULT_INTERVAL)
+    def __init__(self, plant: dict[str, Any], now: datetime, season: str | bool = SEASON_GROWTH, moisture: float | None = None) -> None:
+        if season is True:
+            season = SEASON_WINTER
+        elif season is False:
+            season = SEASON_GROWTH
+        self.season = season
+        base = plant.get(P_INTERVAL) or DEFAULT_INTERVAL
+        if season == SEASON_WINTER:
+            iv = plant.get(P_INTERVAL_WINTER) or base
+        elif season == SEASON_SUMMER:
+            iv = plant.get(P_INTERVAL_SUMMER) or base
+        else:
+            iv = base
+        self.interval = float(iv)
         self.moisture = moisture
         self.moisture_min = float(plant.get(P_MOISTURE_MIN) or DEFAULT_MOISTURE_MIN)
         self.last = dt_util.parse_datetime(plant.get(P_LAST) or "") if plant.get(P_LAST) else None
@@ -85,9 +111,41 @@ class PlanterCoordinator:
     def plant(self, plant_id: str) -> dict[str, Any] | None:
         return next((p for p in self.plants if p.get(P_ID) == plant_id), None)
 
+    def day_length(self, now: datetime | None = None) -> float:
+        lat = self.hass.config.latitude if self.hass.config.latitude is not None else 59.9
+        return day_length_hours(lat, now or dt_util.now())
+
+    def season(self, now: datetime | None = None) -> str:
+        now = now or dt_util.now()
+        if self.cfg.get(CONF_SEASON_MODE, "daylength") == "months":
+            months = [int(m) for m in (self.cfg.get(CONF_WINTER_MONTHS) or [])]
+            return SEASON_WINTER if now.month in months else SEASON_GROWTH
+        dl = self.day_length(now)
+        if dl < float(self.cfg.get(CONF_WINTER_HOURS, 10)):
+            return SEASON_WINTER
+        if dl > float(self.cfg.get(CONF_SUMMER_HOURS, 17)):
+            return SEASON_SUMMER
+        return SEASON_GROWTH
+
     def is_winter(self, now: datetime | None = None) -> bool:
-        months = self.cfg.get(CONF_WINTER_MONTHS) or []
-        return (now or dt_util.now()).month in [int(m) for m in months]
+        return self.season(now) == SEASON_WINTER
+
+    def season_switch_dates(self) -> dict[str, str | None]:
+        """Omtrentlige datoer i år der sesongen skifter (bare for daglengde-modus)."""
+        if self.cfg.get(CONF_SEASON_MODE, "daylength") == "months":
+            return {}
+        now = dt_util.now()
+        out: dict[str, str | None] = {}
+        prev = None
+        for d in range(0, 366):
+            when = now.replace(month=1, day=1) + timedelta(days=d)
+            if when.year != now.year:
+                break
+            cur = self.season(when)
+            if prev is not None and cur != prev:
+                out[f"{prev}→{cur}"] = when.strftime("%d.%m")
+            prev = cur
+        return out
 
     def moisture(self, plant: dict[str, Any]) -> float | None:
         ent = plant.get(P_MOISTURE)
@@ -102,7 +160,7 @@ class PlanterCoordinator:
             return None
 
     def _status_of(self, p: dict[str, Any], now: datetime) -> PlantStatus:
-        return PlantStatus(p, now, self.is_winter(now), self.moisture(p))
+        return PlantStatus(p, now, self.season(now), self.moisture(p))
 
     def status(self, plant_id: str) -> PlantStatus | None:
         p = self.plant(plant_id)
@@ -126,6 +184,7 @@ class PlanterCoordinator:
             P_ICON: p.get(P_ICON) or DEFAULT_ICON,
             P_INTERVAL: int(p.get(P_INTERVAL) or DEFAULT_INTERVAL),
             P_INTERVAL_WINTER: int(p.get(P_INTERVAL_WINTER) or 0),
+            P_INTERVAL_SUMMER: int(p.get(P_INTERVAL_SUMMER) or 0),
             P_MOISTURE: p.get(P_MOISTURE) or None,
             P_MOISTURE_MIN: int(p.get(P_MOISTURE_MIN) or DEFAULT_MOISTURE_MIN),
             P_AUTO_WATERED: bool(p.get(P_AUTO_WATERED, True)),

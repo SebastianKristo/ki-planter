@@ -5,7 +5,7 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass, Bina
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, P_AUTO_WATERED, P_ICON, P_ID, P_INTERVAL, P_INTERVAL_WINTER, P_LATIN, P_MOISTURE, P_NAME, P_TIP
+from .const import DOMAIN, P_AUTO_WATERED, P_ICON, P_ID, P_INTERVAL, P_INTERVAL_SUMMER, P_INTERVAL_WINTER, P_LATIN, P_MOISTURE, P_NAME, P_TIP
 from .entity import PlanteEntity
 
 
@@ -43,8 +43,11 @@ class TrengerVann(PlanteEntity, BinarySensorEntity):
             "ikon": p.get(P_ICON),
             "tips": p.get(P_TIP) or None,
             "intervall_dager": s.interval if s else p.get(P_INTERVAL),
+            "intervall_vekst": p.get(P_INTERVAL),
             "intervall_sommer": p.get(P_INTERVAL),
             "intervall_vinter": p.get(P_INTERVAL_WINTER) or None,
+            "intervall_hoysommer": p.get(P_INTERVAL_SUMMER) or None,
+            "daglengde_timer": round(c.day_length(), 1),
             "sesong": s.season if s else None,
             "fuktighet_sensor": p.get(P_MOISTURE) or None,
             "fuktighet": s.moisture if s else None,
